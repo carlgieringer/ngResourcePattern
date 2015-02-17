@@ -1,0 +1,29 @@
+<div ng-controller="BooksCtrl as ctrl">
+  <ul>
+    <li ng-repeat="book in ctrl.books">
+      <a ng-href="/books/{{book.id}}">{{book.name}}</a> by {{book.author}}
+    </li>
+  </ul>
+  <p ng-if="!ctrl.books.length">
+    No books
+  </p>
+
+  <form name="form" novalidate ng-submit="ctrl.createBook(form)">
+    <legend>Create Book</legend>
+
+    <label for="name">Name:</label>
+    <input type="text" name="name" id="name" ng-model="ctrl.newBook.name" />
+
+    <label for="author">Author:</label>
+    <input type="text" name="author" id="author" ng-model="ctrl.newBook.author" />
+
+    <label for="genre">Genre:</label>
+    <select ng-model="ctrl.newBook.genre"
+      name="genre"
+      id="genre"
+      ng-options="genre.display for genre in ctrl.genres | orderBy:'display' track by genre.code">
+    </select>
+
+    <button type="submit">Create</button>
+  </form>
+</div>

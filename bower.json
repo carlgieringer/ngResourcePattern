@@ -1,0 +1,36 @@
+{
+  "name": "ngResourcePattern",
+  "version": "0.0.0",
+  "authors": [
+    "carl@carlgieringer.com"
+  ],
+  "description": "An application exemplifying a pattern for using AngularJS ngResource with RESTful entities",
+  "main": "client/index.html",
+  "moduleType": [
+    "node"
+  ],
+  "keywords": [
+    "AngularJS",
+    "ngResource",
+    "$resource",
+    "Pattern",
+    "REST"
+  ],
+  "license": "ISC",
+  "homepage": "http://carlgieringer.com/blog/a-pattern-for-using-angularjs-resource-with-restful-entities",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "~1.3.9",
+    "angular-resource": "~1.3.9",
+    "jquery": "~2.1.3",
+    "angular-route": "~1.3.9",
+    "lodash": "~2.4.1"
+  }
+}

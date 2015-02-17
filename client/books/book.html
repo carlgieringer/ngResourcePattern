@@ -1,0 +1,31 @@
+<div ng-controller="BookCtrl as ctrl">
+  <a href="/books">books</a> / {{ctrl.book.name}}
+
+  <p>
+    Is Fiction? {{ctrl.book.isFiction ? 'Yes' : 'No'}}
+  </p>
+
+  <form name="form" ng-submit="ctrl.updateBook()">
+    <label for="name">Name:</label>
+    <input type="text" name="name" id="name" ng-model="ctrl.updatedBook.name" />
+
+    <label for="author">Author:</label>
+    <input type="text" name="author" id="author" ng-model="ctrl.updatedBook.author" />
+
+    <label for="genre">Genre:</label>
+    <select ng-model="ctrl.updatedBook.genre"
+      name="genre"
+      id="genre"
+      ng-options="genre.display for genre in ctrl.genres | orderBy:'display' track by genre.code">
+    </select>
+
+    Created: {{ctrl.book.created | date:'short'}}
+    Modified: {{ctrl.book.modified | date:'short'}}
+
+    <button type="submit">Update</button>
+  </form>
+
+  <form ng-submit="ctrl.deleteBook()">
+    <button type="submit">Delete</button>
+  </form>
+</div>
