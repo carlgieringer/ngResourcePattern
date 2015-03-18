@@ -1,13 +1,19 @@
 'use strict';
 /* global module:false, require:false */
 
+function isNotTestFile(path) {
+  return !(/\.specs\.js/.test(path));
+}
+
 module.exports = function(grunt) {
 
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
+    
     exec: {
       server: 'node server.js',
     },
+
     jshint: {
       // http://www.jshint.com/docs/options/
       options: {
@@ -36,24 +42,69 @@ module.exports = function(grunt) {
         src: 'server.js',
       },
       client: {
+        src: 'client/**/*.js',
+        filter: isNotTestFile,
         options: {
           // es3: true, // Adhere to ECMAScript 3 for IE 6/7/8/9 (Enable in real-world)
         },
-        src: 'client/**/*.js',
       },
-      gruntfile: {
-        src: 'Gruntfile.js',
+      tests: {
+        src: 'client/**/*.specs.js',
+        options: {
+          globals: {
+            describe: false,
+            expect: false,
+            beforeEach: false,
+            it: false,
+            jasmine: false,
+            module: false,
+            inject: false,
+            _: false,
+          }
+        },
       },
-    }
+      buildFiles: {
+        src: ['Gruntfile.js', 'karma-unit.conf.js'],
+      },
+    },
+
+    karma: {
+      options: {
+        configFile: 'karma-unit.conf.js',
+      },
+      unit: { },
+      debug: {
+        // If Chrome gives you trouble, you can try installing Canary and changing this value to 'ChromeCanary'
+        browsers: ['Chrome'],
+        // Keep the browser open to allow opening it's console to set breakpoints etc.
+        singleRun: false,
+      },
+    },
   });
 
   require('load-grunt-tasks')(grunt);
 
   grunt.registerTask('server', [
-    'jshint:gruntfile',
+    'jshint:buildFiles',
     'jshint:server',
     'jshint:client',
     'exec:server',
+  ]);
+
+  grunt.registerTask('verifyTests', [
+    'jshint:buildFiles',
+    'jshint:client',
+    'jshint:tests',
+  ]);
+
+  grunt.registerTask('test', [
+    'verifyTests',
+    'karma:unit',
+  ]);
+
+  grunt.registerTask('debug', [
+    'verifyTests',
+    'karma:debug',
   ]);
 
   grunt.registerTask('default', ['server']);

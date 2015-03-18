@@ -1,5 +1,7 @@
 "use strict";
 
+var DEFAULT_METHOD = 'GET';
+
 var m = angular.module('ngResourcePattern.services');
 m.factory('resourceSrv', function($resource, $log) {
 
@@ -8,104 +10,90 @@ m.factory('resourceSrv', function($resource, $log) {
   };
 
   /**
-  * Creates a resource service with standardized behavior and actions.
-  *
-  * - Adds an $update action using PUT http method
-  * - Constructs actions using {@link makeAction} for standardized behavior
-  * @param {string} url - The `url` parameter for $resource
-  * @param {object=} options - additional options for resource creation, containing any of:
-  *   - params The `paramDefaults` parameter for $resource
-  *   - responseTransformer function for transforming an entity from the server
-  *   - requestTransformer function for transforming an entity for the server
-  *   - extraActions Additional actions to pass to $resource.  Each key's value should be constructed using {@link makeAction}
-  *   - options The `options` parameter passed to $resource
-  *   - prototype The prototype of the resource constructor
-  */
+   * Creates a Resource with standardized behavior and actions.
+   *
+   * Adds an $update action using PUT HTTP method.  Adds request/responseTransformer as appropriate
+   * for the HTTP method to all actions (built-in and extra.)
+   *
+   * @param {string} url - The `url` parameter for $resource
+   * @param {object=} options - additional options for resource creation, containing any of:
+   *   - {object=} params - The `paramDefaults` parameter for $resource
+   *   - {function=} responseTransformer - function for transforming an entity from the server
+   *   - {function=} requestTransformer - function for transforming an entity for the server
+   *   - {object} extraActions - Additional actions to pass to $resource.
+   *   - {object} options - The `options` parameter passed to $resource
+   *   - {object.<string,function>} prototype - Additional methods to add to the Resource's prototype
+   *
+   * Note that currently the service overwrites transformers defined for extraActions with any defined
+   * in options.
+   */
   function makeResource(url, options) {
     options = options || {};
-    var actions = {
-      get: makeAction({
-        method: 'GET',
-        responseTransformer: options.responseTransformer
-      }),
-      query: makeAction({
-        method: 'GET',
-        isArray: true,
-        responseTransformer: options.responseTransformer
-      }),
-      save: makeAction({
-        method: 'POST',
-        responseTransformer: options.responseTransformer,
-        requestTransformer: options.requestTransformer
-      }),
-      update: makeAction({
-        method: 'PUT',
-        responseTransformer: options.responseTransformer,
-        requestTransformer: options.requestTransformer
-      })
+
+    // Generate the transformers once for all actions
+    var generatedTransformers = {
+      request: options.requestTransformer && makeRequestTransformer(options.requestTransformer),
+      response: options.responseTransformer && makeResponseTransformer(options.responseTransformer)
     };
-    _.extend(actions, _.map(options.extraActions, function(extraAction) {
-      return makeAction(copyWithTransformers(extraAction, options));
-    }));
+    var builtInActions = {
+      get: makeAction({}, generatedTransformers),
+      query: makeAction({ isArray: true }, generatedTransformers),
+      save: makeAction({ method: 'POST' }, generatedTransformers),
+      update: makeAction({ method: 'PUT' }, generatedTransformers),
+      'delete': makeAction({ method: 'DELETE' }, generatedTransformers),
+      remove: makeAction({ method: 'DELETE' }, generatedTransformers)
+    };
+    var allActions = _.reduce(options.extraActions, function(combinedActions, action, name) {
+      combinedActions[name] = makeAction(action, generatedTransformers);
+      return combinedActions;
+    }, builtInActions);
 
-    var Resource = $resource(url, options.params, actions, options.options);
-
+    var Resource = $resource(url, options.params, allActions, options.options);
     angular.extend(Resource.prototype, options.prototype);
 
     return Resource;
   }
 
-  function copyWithTransformers(action, options) {
+  /**
+   * Creates a resource action with standardized behavior for the response/request transformers
+   * appropriate for the action's HTTP method
+   */
+  function makeAction(action, generatedTransformers) {
     var copy = angular.copy(action);
-    var method = copy.method || 'GET';
+
+    var method = action.method || DEFAULT_METHOD;
     switch (method) {
       case 'GET':
-        copy.responseTransformer = options.responseTransformer;
+        // Assumes that gets do not have payloads
+        if (generatedTransformers.response) {
+          copy.transformResponse = generatedTransformers.response;
+        }
         break;
 
       case 'POST':
       case 'PUT':
-        copy.responseTransformer = options.responseTransformer;
-        copy.requestTransformer = options.requestTransformer;
+        // POST and PUT both send and receive data
+        if (generatedTransformers.response) {
+          copy.transformResponse = generatedTransformers.response;
+        }
+        if (generatedTransformers.request) {
+          copy.transformRequest = generatedTransformers.request;
+        }
         break;
 
       case 'DELETE':
+        // Assume that DELETEs neither send nor receive data
         break;
 
       default:
         $log.warn("Unknown HTTP method: " + method);
-        copy.responseTransformer = options.responseTransformer;
+        if (generatedTransformers.response) {
+          copy.transformResponse = generatedTransformers.response;
+        }
         break;
     }
+
     return copy;
-  }
-
-  /*
-  * Creates a resource action with standardized behavior for the response/request transformers, if defined.
-  * - Ensures that responses are JSON
-  * - Skips transformers when response data is an error object
-  * - Copies request data so that the transformer cannot invalidate the object (causing form errors to flash while request is pending.)
-  */
-  function makeAction(options) {
-    var action = {};
-
-    if (options.method) {
-      action.method = options.method;
-    }
-    if (options.isArray) {
-      action.isArray = options.isArray;
-    }
-    if (options.params) {
-      action.params = options.params;
-    }
-    if (options.requestTransformer) {
-      action.transformRequest = makeRequestTransformer(options.requestTransformer);
-    }
-    if (options.responseTransformer) {
-      action.transformResponse = makeResponseTransformer(options.responseTransformer);
-    }
-
-    return action;
   }
 
   function makeResponseTransformer(responseTransformer) {
@@ -116,7 +104,7 @@ m.factory('resourceSrv', function($resource, $log) {
       } catch (err) {
         throw new Error("API response is not JSON: " + data);
       }
-      // Just assume that the data should be transformed; if we wanted to ensure this we could pass isArray into this method
+      // Just assume that the data should be transformed; if we wanted to ensure that the correct JSON type was returned, we could pass isArray into this method
       return _.isArray(data) ? _.map(data, responseTransformer) : responseTransformer(data);
     };
   }
